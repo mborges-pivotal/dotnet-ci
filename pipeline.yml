@@ -1,0 +1,425 @@
+---
+##################################################
+# RESOURCES
+##################################################
+resources:
+- name: pipeline
+  type: git
+  source:
+    uri: {{pipeline-git-uri}}
+    branch: {{pipeline-git-branch}}
+    #private_key: {{git-private-key}}
+
+
+#### Simple PHP
+#################
+- name: simple-php
+  type: git
+  source:
+    uri: {{simple-php-git-uri}}
+    branch: {{simple-php-git-branch}}
+    #private_key: {{git-private-key}}
+
+- name: simple-php-version
+  type: semver
+  source:
+    driver: git
+    uri: {{simple-git-version-uri}}
+    branch: {{simple-git-version-branch}}
+    file: number-simple-php
+    initial_version: 1.0.0
+    private_key: {{git-private-key}}
+
+
+##################
+#### PCF
+##################
+- name: cf-itest
+  type: cf
+  source:
+    api: {{cf-api-url}}
+    skip_cert_check: true
+    username: {{cf-username}}
+    password: {{cf-password}}
+    organization: {{cf-org}}
+    space: {{cf-space}}
+
+cf-params: &cf-params
+  CF_API_URL: {{cf-api-url}}
+  CF_SKIP_SSL: {{cf-skip-ssl}}
+  CF_USERNAME: {{cf-username}}
+  CF_PASSWORD: {{cf-password}}
+  CF_ORG: {{cf-org}}
+
+##################################################
+# JOBS
+##################################################
+jobs:
+- name: prepare-itest-env
+  plan:
+  - get: pipeline
+  - task: prepare-cf
+    file: pipeline/ci/prepare-cf.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-space}}
+      CF_DB_SERVICE_URL: {{cf-oracle-service-url}}
+      CF_DB_SERVICE_USERNAME: {{cf-oracle-service-username}}
+      CF_DB_SERVICE_PASSWORD: {{cf-oracle-service-password}}
+      CF_REDIS_SERVICE: {{cf-redis-service}}
+      CF_RABBIT_SERVICE: {{cf-rabbit-service}}
+
+#####
+# DEPLOY
+######
+- name: prepare-uat-env
+  plan:
+  - get: pipeline
+  - task: prepare-cf
+    file: pipeline/ci/prepare-cf.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-uat-space}}
+      CF_DB_SERVICE_URL: {{cf-uat-oracle-service-url}}
+      CF_DB_SERVICE_USERNAME: {{cf-uat-oracle-service-username}}
+      CF_DB_SERVICE_PASSWORD: {{cf-uat-oracle-service-password}}
+      CF_REDIS_SERVICE: {{cf-uat-redis-service}}
+      CF_RABBIT_SERVICE: {{cf-uat-rabbit-service}}
+
+#### UAT
+- name: deploy-simple-php-uat
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ prepare-uat-env ]
+    - get: release
+      resource: artifactory-release-php
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-uat-space}}
+      CF_APP_NAME: {{cf-simple-php-name}}
+      CF_APP_HOST: {{cf-simple-php-host}}
+      CF_APP_PATH: ./project
+      CF_APP_SERVICES: {{cf-simple-php-services}}
+      CF_BUILDPACK: php_oracle_buildpack
+      CF_ARTIFACT_ID: simple-php
+      CF_INSTANCES: 2
+  - put: cf-uat
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-php-name}}
+
+- name: deploy-simple-ui-uat
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ prepare-uat-env ]
+    - get: release
+      resource: artifactory-release-ui
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-uat-space}}
+      CF_APP_NAME: {{cf-simple-ui-name}}
+      CF_APP_HOST: {{cf-simple-ui-host}}
+      CF_APP_PATH: .
+      CF_APP_SERVICES: {{cf-simple-ui-services}}
+      CF_BUILDPACK: php_oracle_buildpack
+      CF_ARTIFACT_ID: simple-ui
+      CF_INSTANCES: 2
+  - put: cf-uat
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-ui-name}}
+
+- name: prepare-prod-env
+  plan:
+  - get: pipeline
+  - task: prepare-cf
+    file: pipeline/ci/prepare-cf.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-prod-space}}
+      CF_DB_SERVICE_URL: {{cf-prod-oracle-service-url}}
+      CF_DB_SERVICE_USERNAME: {{cf-prod-oracle-service-username}}
+      CF_DB_SERVICE_PASSWORD: {{cf-prod-oracle-service-password}}
+      CF_REDIS_SERVICE: {{cf-prod-redis-service}}
+      CF_RABBIT_SERVICE: {{cf-prod-rabbit-service}}
+
+
+#### PROD
+- name: deploy-simple-php-prod
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ deploy-simple-php-uat, prepare-prod-env ]
+    - get: release
+      resource: artifactory-release-php
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-prod-space}}
+      CF_APP_NAME: {{cf-simple-php-name}}
+      CF_APP_HOST: {{cf-simple-php-host}}
+      CF_APP_PATH: ./project
+      CF_APP_SERVICES: {{cf-simple-php-services}}
+      CF_BUILDPACK: php_oracle_buildpack
+      CF_ARTIFACT_ID: simple-php
+      CF_INSTANCES: 4
+  - put: cf-prod
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-php-name}}
+
+- name: deploy-simple-ui-prod
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ deploy-simple-ui-uat, prepare-prod-env ]
+    - get: release
+      resource: artifactory-release-ui
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-prod-space}}
+      CF_APP_NAME: {{cf-simple-ui-name}}
+      CF_APP_HOST: {{cf-simple-ui-host}}
+      CF_APP_PATH: .
+      CF_APP_SERVICES: {{cf-simple-ui-services}}
+      CF_BUILDPACK: php_oracle_buildpack
+      CF_ARTIFACT_ID: simple-ui
+      CF_INSTANCES: 2
+
+  - put: cf-prod
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-ui-name}}
+
+
+##################
+#### SIMPLE PHP
+##################
+
+# Build, Store, Version
+- name: build-simple-php
+  serial_groups: [ simple-php-version ]
+  plan:
+  - aggregate:
+    - get: pipeline
+    - get: project
+      resource: simple-php
+      trigger: true
+    - get: version
+      resource: simple-php-version
+      params: { bump: patch }
+  - task: build
+    file: pipeline/ci/build-php.yml
+    params:
+      ARTIFACT_ID: simple-php
+  #- put: simple-milestone
+  #  params: { file: build-output/simple-php-*.tar.gz }
+  - put: simple-php-version
+    params: { file: version/number }
+  - put: artifactory-snapshot-php
+    params: { file: build-output/simple-php-*.tar.gz }
+
+- name: sonar-scanner
+  plan:
+    - get: pipeline
+    - get: project
+      resource: simple-php
+      trigger: true
+      passed: [ build-simple-php ]
+    - task: sonar
+      file: pipeline/ci/sonar.yml
+      params:
+        SONAR_HOST_URL: http://docker.borgescloud.com:9000
+
+# Deploy on PCF
+- name: deploy-simple-php
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ prepare-itest-env ]
+    - get: release
+      resource: artifactory-snapshot-php
+      passed: [ build-simple-php ]
+      trigger: true
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-space}}
+      CF_APP_NAME: {{cf-simple-php-name}}
+      CF_APP_HOST: {{cf-simple-php-host}}
+      CF_APP_PATH: ./project
+      CF_APP_SERVICES: {{cf-simple-php-services}}
+      CF_BUILDPACK: php_buildpack
+      CF_ARTIFACT_ID: simple-php
+      CF_INSTANCES: 1
+  - put: cf-itest
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-php-name}}
+
+# Functional test
+- name: itest-simple-php
+  serial: true
+  plan:
+  - get: pipeline
+    passed: [ deploy-simple-php ]
+    trigger: true
+  - task: itest
+    file: pipeline/ci/itest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-space}}
+      CF_APP_NAME: {{cf-simple-php-name}}
+      CF_APP_HOST: {{cf-simple-php-host}}
+
+# publish
+###############################
+- name: simple-php-major
+  serial_groups: [ simple-version ]
+  plan:
+  - get: version
+    resource: simple-php-version
+    params: { bump: major }
+  - put: simple-php-version
+    params: { file: version/number }
+
+- name: simple-php-minor
+  serial_groups: [ simple-version ]
+  plan:
+  - get: version
+    resource: simple-php-version
+    params: { bump: minor }
+  - put: simple-php-version
+    params: { file: version/number }
+
+- name: simple-php-promote
+  serial_groups: [ simple-php-version, simple-version ]
+  plan:
+  - get: artifactory
+    resource: artifactory-snapshot-php
+  - put: artifactory-release-php
+    params: { file: artifactory/simple-php-*.tar.gz}
+
+##################
+#### SIMPLE UI
+##################
+
+# Build, Store, Version
+- name: build-simple-ui
+  serial_groups: [ simple-ui-version ]
+  plan:
+  - aggregate:
+    - get: pipeline
+    - get: project
+      resource: simple-ui
+      trigger: true
+    - get: version
+      resource: simple-ui-version
+      params: { bump: patch }
+  - task: build
+    file: pipeline/ci/build-gulp.yml
+    params:
+      ARTIFACT_ID: simple-ui
+  - put: artifactory-snapshot-ui
+    params: { file: build-output/simple-ui-*.tar.gz }
+  - put: simple-ui-version
+    params: { file: version/number }
+
+# Deploy on PCF
+- name: deploy-simple-ui
+  serial: true
+  plan:
+  - aggregate:
+    - get: pipeline
+      passed: [ prepare-itest-env ]
+    - get: release
+      resource: artifactory-snapshot-ui
+      passed: [ build-simple-ui ]
+      trigger: true
+  - task: prepare-manifest
+    file: pipeline/ci/prepare-manifest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-space}}
+      CF_APP_NAME: {{cf-simple-ui-name}}
+      CF_APP_HOST: {{cf-simple-ui-host}}
+      CF_APP_PATH: .
+      CF_APP_SERVICES: {{cf-simple-ui-services}}
+      CF_BUILDPACK: staticfile_buildpack
+      CF_ARTIFACT_ID: simple-ui
+      CF_INSTANCES: 1
+  - put: cf-itest
+    params:
+      manifest: prepare-manifest-output/manifest.yml
+      current_app_name: {{cf-simple-ui-name}}
+
+# Functional test
+- name: itest-simple-ui
+  serial: true
+  plan:
+  - get: pipeline
+    passed: [ deploy-simple-ui ]
+    trigger: true
+  - task: itest
+    file: pipeline/ci/itest.yml
+    params:
+      <<: *cf-params
+      CF_SPACE: {{cf-space}}
+      CF_APP_NAME: {{cf-simple-ui-name}}
+      CF_APP_HOST: {{cf-simple-ui-host}}
+
+# publish
+###############################
+- name: simple-ui-major
+  serial_groups: [ simple-version ]
+  plan:
+  - get: version
+    resource: simple-ui-version
+    params: { bump: major }
+  - put: simple-ui-version
+    params: { file: version/number }
+
+- name: simple-ui-minor
+  serial_groups: [ simple-version ]
+  plan:
+  - get: version
+    resource: simple-ui-version
+    params: { bump: minor }
+  - put: simple-ui-version
+    params: { file: version/number }
+
+- name: simple-ui-promote
+  serial_groups: [ simple-ui-version, simple-version ]
+  plan:
+  - get: artifactory
+    resource: artifactory-snapshot-ui
+  - put: artifactory-release-ui
+    params: { file: artifactory/simple-ui-*.tar.gz}
+
+
+################
+#### itest-all
+################
+- name: itest-all
+  serial: true
+  plan:
+  - get: pipeline
+    passed: [ itest-simple-php, itest-simple-ui]
+    trigger: true
+  - task: itest-all
+    file: pipeline/ci/itest-all.yml

@@ -1,0 +1,19 @@
+---
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: microsoft/dotnet
+
+params:
+  MAVEN_OPTS:
+  MAVEN_CONFIG:
+  SONAR_HOST_URL:
+
+inputs:
+  - name: pipeline
+  - name: project
+
+run:
+  path: pipeline/ci/build-dotnet.sh

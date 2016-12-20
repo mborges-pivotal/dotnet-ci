@@ -1,0 +1,28 @@
+###############
+# PCF
+###############
+# All application current target to the same space
+cf-api-url: https://api.system.azure.borgescloud.com
+cf-system-domain: system.azure.borgescloud.com
+cf-app-domain: apps.azure.borgescloud.com
+cf-username: mborges
+cf-org: mborges-org
+cf-skip-ssl: true
+cf-space: development
+cf-uat-space: test
+cf-prod-space: production
+
+############
+# Pipeline
+############
+pipeline-git-uri: https://github.com/mborges-pivotal/dotnet-ci.git
+pipeline-git-branch: master
+
+#############
+# simple PHP
+#############
+cf-simple-dotnet-name: simple-dotnet
+cf-simple-dotnet-host: simple-dotnet
+
+simple-dotnet-git-uri: https://github.com/mborges-pivotal/pcf-dotnet-core-simple-aspnet
+simple-dotnet-git-branch: master
