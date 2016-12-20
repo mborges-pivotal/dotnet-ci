@@ -2,16 +2,22 @@
 # PCF
 ###############
 # All application current target to the same space
-cf-api-url: https://api.system.azure.borgescloud.com
-cf-system-domain: system.azure.borgescloud.com
-cf-app-domain: apps.azure.borgescloud.com
+cf-api-url: https://api.run.pivotal.io
+cf-system-domain: cfapps.io
+cf-app-domain: cfapps.io
 cf-username: mborges
-cf-org: mborges-org
-cf-skip-ssl: true
-cf-space: development
-cf-uat-space: test
-cf-prod-space: production
+cf-org: SoCal
+cf-skip-ssl: false
+cf-space: test
 
+############# VERSION
+simple-git-version-uri: git@github.com:mborges-pivotal/dotnet-ci.git
+simple-git-version-branch: master
+
+git-private-key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  ...
+  -----END RSA PRIVATE KEY-----
 ############
 # Pipeline
 ############
