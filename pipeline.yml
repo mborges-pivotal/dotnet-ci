@@ -32,15 +32,15 @@ resources:
     uri: {{simple-dotnet-git-uri}}
     branch: {{simple-dotnet-git-branch}}
 
-- name: simple-dotnet-version
-  type: semver
-  source:
-    driver: git
-    uri: {{simple-git-version-uri}}
-    branch: {{simple-git-version-branch}}
-    file: number-simple-dotnet
-    initial_version: 1.0.0
-    private_key: {{git-private-key}}
+#- name: simple-dotnet-version
+#  type: semver
+#  source:
+#    driver: git
+#    uri: {{simple-git-version-uri}}
+#    branch: {{simple-git-version-branch}}
+#    file: number-simple-dotnet
+#    initial_version: 1.0.0
+#    private_key: {{git-private-key}}
 
 ##################################################
 # JOBS
@@ -55,15 +55,15 @@ jobs:
     - get: project
       resource: simple-dotnet
       trigger: true
-    - get: version
-      resource: simple-dotnet-version
-      params: { bump: patch }
+    #- get: version
+    #  resource: simple-dotnet-version
+    #  params: { bump: patch }
   - task: build
     file: pipeline/ci/build-dotnet.yml
     params:
       ARTIFACT_ID: simple-dotnet
-  - put: simple-dotnet-version
-    params: { file: version/number }
+  #- put: simple-dotnet-version
+  #  params: { file: version/number }
   - put: cf-test
     params:
-      manifest: project/manifest.yml
+      manifest: pipeline/manifests/manifest.yml

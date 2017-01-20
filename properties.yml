@@ -2,13 +2,13 @@
 # PCF
 ###############
 # All application current target to the same space
-cf-api-url: https://api.run.pivotal.io
-cf-system-domain: cfapps.io
-cf-app-domain: cfapps.io
+cf-api-url: https://api.sys.pcf.mtchouston.net
+cf-system-domain: app.pcf.mtchouston.net
+cf-app-domain: app.pcf.mtchouston.net
 cf-username: mborges
-cf-org: SoCal
-cf-skip-ssl: false
-cf-space: test
+cf-org: exxon
+cf-skip-ssl: true
+cf-space: development
 
 ############# VERSION
 simple-git-version-uri: git@github.com:mborges-pivotal/dotnet-ci.git
