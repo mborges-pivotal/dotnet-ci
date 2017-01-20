@@ -1,6 +1,6 @@
 ---
 applications:
 - name: dotnet-mmb
-  command: node index.js
   buildpack: dotnet-core-buildpack
   instances: 1
+  path: project
