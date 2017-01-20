@@ -67,3 +67,4 @@ jobs:
   - put: cf-test
     params:
       manifest: pipeline/manifests/manifest.yml
+      path: project

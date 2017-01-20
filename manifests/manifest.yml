@@ -3,4 +3,3 @@ applications:
 - name: dotnet-mmb
   buildpack: dotnet-core-buildpack
   instances: 1
-  path: project
